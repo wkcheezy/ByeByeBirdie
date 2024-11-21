@@ -8,11 +8,11 @@ A tool for cleaning up your tweets and quotes tweets off of the Hell Site.
 
 ## Instructions
 
-	1. Launch the program
-	2. In the opened browser window, sign into the account you want to delete the tweets from
-		- If you're having trouble logging in, try refreshing the page.
-	3. Once logged in, the browser should quickly load your timeline, then automatically close. If it doesn't automatically close, navigate to your profile. If it still doesn't close after that, file a bug!
-	4. Once the browser is closed, the program should start deleting your tweets.
+1. Launch the program
+2. In the opened browser window, sign into the account you want to delete the tweets from
+	- If you're having trouble logging in, try refreshing the page.
+3. Once logged in, the browser should quickly load your timeline, then automatically close. If it doesn't automatically close, navigate to your profile. If it still doesn't close after that, file a bug!
+4. Once the browser is closed, the program should start deleting your tweets.
 
 ## External Licenses
 
