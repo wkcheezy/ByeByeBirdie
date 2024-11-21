@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,7 +14,7 @@ func getTweetIds(uri, referrer, token, auth string, cookies []string) []string{
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 
 	if err != nil {
-		log.Fatalf("Error creating request: %s", err)
+		panic(fmt.Sprintf("Error creating request: %s", err))
 	}
 
 	applyHeaders(req, referrer, token, auth, cookies)
@@ -30,13 +29,13 @@ func getTweetIds(uri, referrer, token, auth string, cookies []string) []string{
 
 		newUrl, err := url.Parse(uri)
 		if err != nil {
-			log.Fatalf("Error parsing URL: %s", err)
+			panic(fmt.Sprintf("Error parsing URL: %s", err))
 		}
 		req.URL = newUrl
 
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Fatalf("Error executing request: %s", err)
+			panic(fmt.Sprintf("Error executing request: %s", err))
 		}
 		defer res.Body.Close()
 		if res.StatusCode == http.StatusOK {
@@ -44,7 +43,7 @@ func getTweetIds(uri, referrer, token, auth string, cookies []string) []string{
 
 			err := json.NewDecoder(res.Body).Decode(&parsedResponse)
 			if err != nil {
-				log.Fatalf("Error decoding response: %s", err)
+				panic(fmt.Sprintf("Error decoding response: %s", err))
 			}
 			for _, item := range parsedResponse.Data.User.Result.Timeline_v2.Timeline.Instructions {
 				for _, entry := range item.Entries {
@@ -66,7 +65,7 @@ func getTweetIds(uri, referrer, token, auth string, cookies []string) []string{
 				}
 			}
 		} else {
-			log.Fatalf("Non success status returned: %s", res.Status)
+			panic(fmt.Sprintf("Non success status returned: %s", res.Status))
 		}
 	}
 

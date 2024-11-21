@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
@@ -16,7 +16,7 @@ import (
 func authenticate() (string, string, string, string, []string) {
 	path, exists := launcher.LookPath()
 	if !exists {
-		log.Fatal("Missing Chromium browser")
+		panic(fmt.Sprintf("Missing Chromium browser"))		
 	}
 	args := launcher.New().Headless(false).FormatArgs()
 	var cmd *exec.Cmd
@@ -27,13 +27,15 @@ func authenticate() (string, string, string, string, []string) {
 	utils.E(cmd.Start())
 	u := launcher.MustResolveURL(<-parser.URL)
 
+	log.Info("Opening browser. Please login.")
 	browser := rod.New().ControlURL(u).MustConnect()
 	page := browser.MustPage("https://x.com/login")
 
 	err := page.WaitElementsMoreThan("[aria-label='Profile']", 0)
 	if err != nil {
-		log.Fatalf("Error waiting for elements: %s", err)
+		panic(fmt.Sprintf("Error waiting for elements: %s", err))		
 	}
+	log.Info("Login successful. Fetching auth headers...")
 
 	page.MustElement("[aria-label='Profile']").MustClick()
 
@@ -44,7 +46,7 @@ func authenticate() (string, string, string, string, []string) {
 		if strings.Contains(e.Request.URL, "UserTweets") && !gson.JSON.Nil(e.Request.Headers["authorization"]) {
 			c, err := page.Cookies([]string{})
 			if err != nil {
-				log.Fatalf("Error getting cookies: %s", err)
+				panic(fmt.Sprintf("Error getting cookies: %s", err))				
 			}
 			token = e.Request.Headers["x-csrf-token"].String()
 			auth = e.Request.Headers["authorization"].String()
@@ -66,5 +68,6 @@ func authenticate() (string, string, string, string, []string) {
 	})()
 
 	browser.Close()
+	log.Info("Authentication successful")
 	return uri, referrer, token, auth, cookies
 }
