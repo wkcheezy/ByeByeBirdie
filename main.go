@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"github.com/charmbracelet/log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 func main() {
@@ -15,7 +18,8 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Unable to complete process. Please file an issue on GitHub (https://github.com/wkcheezy/ByeByeBirdie/issues/new) or reach out on BlueSky (@saycheezy.bsky.social), and include the error message below.")
-			log.Fatalf("%s", r)
+			log.Errorf("%s", r)
+			bufio.NewReader(os.Stdin).ReadString('\n')
 		}
 	}()
 
@@ -74,7 +78,7 @@ func main() {
 			log.Warn("There were some issues deleting some of the tweets. Please check the logs above, and reach out with any unknown issues\nGITHUB: https://github.com/wkcheezy/ByeByeBirdie/issues/new\nBLUESKY: @saycheezy.bsky.social")
 		}
 	} else {
-		log.Error("No tweets found! If you have tweets on this account, please file an issue on GitHub: https://github.com/wkcheezy/ByeByeBirdie/issues/new or reach out on BlueSky: @saycheezy.bsky.social")
+		panic("No tweets found! This may not be an issue if you don't have tweets on this account. Please double check your account.")
 	}
 
 }
