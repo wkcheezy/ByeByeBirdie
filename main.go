@@ -19,15 +19,12 @@ func main() {
 		var wg sync.WaitGroup
 		wg.Add(len(tweetIds))
 
-		const queryId = "VaenaVgh5q5ih7kvyVjgtg"
 		for _, tweetId := range tweetIds {
 			go func() {
 				defer wg.Done()
 				payload := strings.NewReader(fmt.Sprintf(`{"variables": {"tweet_id": "%s","dark_request": false},"queryId":"VaenaVgh5q5ih7kvyVjgtg"}`, tweetId))
 
-				uri := fmt.Sprintf("https://x.com/i/api/graphql/%s/DeleteTweet", queryId)
-
-				req, err := http.NewRequest(http.MethodPost, uri, payload)
+				req, err := http.NewRequest(http.MethodPost, "https://x.com/i/api/graphql/VaenaVgh5q5ih7kvyVjgtg/DeleteTweet", payload)
 
 				if err != nil {
 					log.Fatalf("Error creating delete request: %s", err)
