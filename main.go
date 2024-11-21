@@ -25,7 +25,7 @@ func main() {
 	log.Info("Getting tweets...")
 	tweetIds := getTweetIds(uri, referrer, token, auth, cookies)
 
-	log.Info("Done looking for tweets.")
+	log.Infof("%d tweets found.", len(tweetIds))
 	if len(tweetIds) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(len(tweetIds))
