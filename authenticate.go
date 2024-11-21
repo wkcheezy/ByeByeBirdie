@@ -28,7 +28,6 @@ func authenticate() (string, string, string, string, []string) {
 	u := launcher.MustResolveURL(<-parser.URL)
 
 	browser := rod.New().ControlURL(u).MustConnect()
-	defer browser.Close()
 	page := browser.MustPage("https://x.com/login")
 
 	err := page.WaitElementsMoreThan("[aria-label='Profile']", 0)
@@ -66,5 +65,6 @@ func authenticate() (string, string, string, string, []string) {
 		return false
 	})()
 
+	browser.Close()
 	return uri, referrer, token, auth, cookies
 }
