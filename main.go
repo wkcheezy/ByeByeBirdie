@@ -7,17 +7,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/go-rod/rod/lib/utils"
-	"github.com/ysmood/gson"
 )
 
 func applyHeaders(req *http.Request, referrer, token, auth string, cookies []string) {
@@ -29,120 +22,74 @@ func applyHeaders(req *http.Request, referrer, token, auth string, cookies []str
 }
 
 func main() {
-	if path, exists := launcher.LookPath(); exists {
-		args := launcher.New().Headless(false).FormatArgs()
+	token, auth, uri, referrer, cookies, tweetIds := authenticate()
 
-		var cmd *exec.Cmd
-		cmd = exec.Command(path, args...)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
 
-		parser := launcher.NewURLParser()
-		cmd.Stderr = parser
-		utils.E(cmd.Start())
-		u := launcher.MustResolveURL(<-parser.URL)
+	if err != nil {
+		log.Fatalf("Error creating request: %s", err)
+	}
 
-		browser := rod.New().ControlURL(u).MustConnect()
-		page := browser.MustPage("https://x.com/login")
+	applyHeaders(req, referrer, token, auth, cookies)
 
-		err := page.WaitElementsMoreThan("[aria-label='Profile']", 0)
+	var prevEndCursor string
+	tweetRegex := regexp.MustCompile(`^tweet-\d+$`)
+	cursorRegex := regexp.MustCompile(`^cursor-bottom-\d+$`)
+	keepRequesting := true
+
+	for keepRequesting {
+		keepRequesting = false
+
+		newUrl, err := url.Parse(uri)
 		if err != nil {
-			log.Fatalf("Error waiting for elements: %s", err)
+			log.Fatalf("Error parsing URL: %s", err)
 		}
+		req.URL = newUrl
 
-		page.MustElement("[aria-label='Profile']").MustClick()
-
-		var token, auth, uri, referrer string
-		var cookies, tweetIds []string
-
-		page.EachEvent(func(e *proto.NetworkRequestWillBeSent) (stop bool) {
-			if strings.Contains(e.Request.URL, "UserTweets") && !gson.JSON.Nil(e.Request.Headers["authorization"]) {
-				c, err := page.Cookies([]string{})
-				if err != nil {
-					log.Fatalf("Error getting cookies: %s", err)
-				}
-				token = e.Request.Headers["x-csrf-token"].String()
-				auth = e.Request.Headers["authorization"].String()
-				referrer = e.Request.Headers["Referrer"].String()
-				for _, cookie := range c {
-					cookies = append(cookies, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
-				}
-
-				uri = e.Request.URL
-
-				return true
-			}
-			return false
-		}, func(e *proto.NetworkResponseReceived) (stop bool) {
-			if strings.Contains(e.Response.URL, "UserTweets") {
-				return true
-			}
-			return false
-		})()
-		browser.Close()
-
-		req, err := http.NewRequest(http.MethodGet, uri, nil)
-
+		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Fatalf("Error creating request: %s", err)
+			log.Fatalf("Error executing request: %s", err)
 		}
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusOK {
+			var parsedResponse TweetsResponse
 
-		applyHeaders(req, referrer, token, auth, cookies)
-
-		var prevEndCursor string
-		tweetRegex := regexp.MustCompile(`^tweet-\d+$`)
-		cursorRegex := regexp.MustCompile(`^cursor-bottom-\d+$`)
-		keepRequesting := true
-
-		for keepRequesting {
-			keepRequesting = false
-
-			newUrl, err := url.Parse(uri)
+			err := json.NewDecoder(res.Body).Decode(&parsedResponse)
 			if err != nil {
-				log.Fatalf("Error parsing URL: %s", err)
+				log.Fatalf("Error decoding response: %s", err)
 			}
-			req.URL = newUrl
-
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				log.Fatalf("Error executing request: %s", err)
-			}
-			defer res.Body.Close()
-			if res.StatusCode == http.StatusOK {
-				var parsedResponse TweetsResponse
-
-				err := json.NewDecoder(res.Body).Decode(&parsedResponse)
-				if err != nil {
-					log.Fatalf("Error decoding response: %s", err)
-				}
-				for _, item := range parsedResponse.Data.User.Result.Timeline_v2.Timeline.Instructions {
-					for _, entry := range item.Entries {
-						if tweetRegex.MatchString(entry.EntryId) {
-							if entry.Content.ItemContent.Tweet_results.Result.Legacy.Retweeted_status_result == nil {
-								tweetIds = append(tweetIds, entry.Content.ItemContent.Tweet_results.Result.RestID)
-							}
-						} else if cursorRegex.MatchString(entry.EntryId) && entry.Content.Value != prevEndCursor {
-							if strings.Contains(uri, "cursor") {
-								strings.Replace(uri, prevEndCursor, entry.Content.Value, 1)
-							} else {
-								cursor := url.QueryEscape(fmt.Sprintf("\"cursor\":\"%s\",", entry.Content.Value))
-								index := strings.Index(uri, "%7B") + 3
-								uri = uri[:index] + cursor + uri[index:]
-							}
-							prevEndCursor = entry.Content.Value
-							keepRequesting = true
+			for _, item := range parsedResponse.Data.User.Result.Timeline_v2.Timeline.Instructions {
+				for _, entry := range item.Entries {
+					if tweetRegex.MatchString(entry.EntryId) {
+						if entry.Content.ItemContent.Tweet_results.Result.Legacy.Retweeted_status_result == nil {
+							tweetIds = append(tweetIds, entry.Content.ItemContent.Tweet_results.Result.RestID)
 						}
+					} else if cursorRegex.MatchString(entry.EntryId) && entry.Content.Value != prevEndCursor {
+						if strings.Contains(uri, "cursor") {
+							strings.Replace(uri, prevEndCursor, entry.Content.Value, 1)
+						} else {
+							cursor := url.QueryEscape(fmt.Sprintf("\"cursor\":\"%s\",", entry.Content.Value))
+							index := strings.Index(uri, "%7B") + 3
+							uri = uri[:index] + cursor + uri[index:]
+						}
+						prevEndCursor = entry.Content.Value
+						keepRequesting = true
 					}
 				}
-			} else {
-				log.Fatalf("Non success status returned: %s", res.Status)
 			}
+		} else {
+			log.Fatalf("Non success status returned: %s", res.Status)
 		}
+	}
 
+	if len(tweetIds) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(len(tweetIds))
+
+		const queryId = "VaenaVgh5q5ih7kvyVjgtg"
 		for _, tweetId := range tweetIds {
 			go func() {
 				defer wg.Done()
-				queryId := "VaenaVgh5q5ih7kvyVjgtg"
 				payload := strings.NewReader(fmt.Sprintf(`{"variables": {"tweet_id": "%s","dark_request": false},"queryId":"VaenaVgh5q5ih7kvyVjgtg"}`, tweetId))
 				if err != nil {
 					log.Fatalf("Error marshalling delete body: %s", err)
@@ -177,8 +124,7 @@ func main() {
 			time.Sleep(50 * time.Millisecond)
 		}
 		wg.Wait()
-
 	} else {
-		log.Fatal("Missing Chromium browser")
+		log.Print("No tweets found!")
 	}
 }
