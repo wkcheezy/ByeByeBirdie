@@ -13,7 +13,7 @@ import (
 	"github.com/ysmood/gson"
 )
 
-func authenticate() (string, string, string, string, []string, []string) {
+func authenticate() (string, string, string, string, []string) {
 	path, exists := launcher.LookPath()
 	if !exists {
 		log.Fatal("Missing Chromium browser")
@@ -38,8 +38,8 @@ func authenticate() (string, string, string, string, []string, []string) {
 
 	page.MustElement("[aria-label='Profile']").MustClick()
 
-	var token, auth, uri, referrer string
-	var cookies, tweetIds []string
+	var uri, referrer, token, auth string
+	var cookies []string
 
 	page.EachEvent(func(e *proto.NetworkRequestWillBeSent) (stop bool) {
 		if strings.Contains(e.Request.URL, "UserTweets") && !gson.JSON.Nil(e.Request.Headers["authorization"]) {
@@ -66,5 +66,5 @@ func authenticate() (string, string, string, string, []string, []string) {
 		return false
 	})()
 
-	return token, auth, uri, referrer, cookies, tweetIds
+	return uri, referrer, token, auth, cookies
 }

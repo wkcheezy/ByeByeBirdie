@@ -1,5 +1,10 @@
 package main
 
+import (
+	"net/http"
+	"strings"
+)
+
 func applyHeaders(req *http.Request, referrer, token, auth string, cookies []string) {
 	req.Header.Add("Host", "x.com")
 	req.Header.Add("Referrer", referrer)
